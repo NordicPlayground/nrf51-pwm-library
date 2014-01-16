@@ -1,0 +1,11 @@
+*/_build/*
+!*/_build/*.hex
+arm/*
+!arm/*.uvproj
+!arm/*.uvopt
+*.uvgui.*
+*.dep
+*.log
+*.bak
+*.ini
+
