@@ -1,7 +1,7 @@
 nrf51-pwm-library
 ==================
 
-This project includes a PWM library, and two examples showing how to use it. 
+This project includes a PWM library, and three examples showing how to use it. 
 The PWM library can be configured with up to 3 PWM channels, and allows the PWM to run interrupted during high priority interrupts. Various configuration parameters exist to set the duty cycle, frequency, GPIO assignment, PPI channel usage and more. 
 
 The library can be used with or without a SoftDevice, and a define exists in the header file to make the driver use the SoC API (required if you want to initialize the PMW driver after the SoftDevice is enabled). 

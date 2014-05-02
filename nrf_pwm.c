@@ -36,27 +36,27 @@ uint32_t nrf_pwm_init(nrf_pwm_config_t *config)
     
     switch(config->mode)
     {
-        case PWM_MODE_LED_100:   // 0-100 resolution, 321 Hz PWM frequency, 32 kHz timer frequency (prescaler 9)
-            PWM_TIMER->PRESCALER = 9; /* Prescaler 4 results in 1 tick == 1 microsecond */
+        case PWM_MODE_LED_100:   // 0-100 resolution, 321Hz PWM frequency, 32kHz timer frequency (prescaler 9)
+            PWM_TIMER->PRESCALER = 9; 
             pwm_max_value = 100;
             break;
-        case PWM_MODE_LED_255:   // 8-bit resolution, 122 Hz PWM frequency, 32 kHz timer frequency (prescaler 8)
+        case PWM_MODE_LED_255:   // 8-bit resolution, 122Hz PWM frequency, 32kHz timer frequency (prescaler 9)
             PWM_TIMER->PRESCALER = 9;
             pwm_max_value = 255;        
             break;
-        case PWM_MODE_LED_1000:  // 0-1000 resolution, 250 Hz PWM frequency, 250 kHz timer frequency (prescaler 5)
+        case PWM_MODE_LED_1000:  // 0-1000 resolution, 250Hz PWM frequency, 250kHz timer frequency (prescaler 6)
             PWM_TIMER->PRESCALER = 6;
             pwm_max_value = 1000;
             break;
-        case PWM_MODE_MTR_100:   // 0-100 resolution, 20 kHz PWM frequency, 2 MHz timer frequency (prescaler 2)
+        case PWM_MODE_MTR_100:   // 0-100 resolution, 20kHz PWM frequency, 2MHz timer frequency (prescaler 3)
             PWM_TIMER->PRESCALER = 3;
             pwm_max_value = 100;
             break;
-        case PWM_MODE_MTR_255:    // 8-bit resolution, 31 kHz PWM frequency, 8 MHz timer frequency (prescaler 0)	
+        case PWM_MODE_MTR_255:    // 8-bit resolution, 31kHz PWM frequency, 8MHz timer frequency (prescaler 1)	
             PWM_TIMER->PRESCALER = 1;
             pwm_max_value = 255;
             break;
-        case PWM_MODE_BUZZER_64:  // 6-bit resolution, 250 kHz PWM frequency, 16 MHz timer frequency (prescaler 0)
+        case PWM_MODE_BUZZER_64:  // 6-bit resolution, 250kHz PWM frequency, 16MHz timer frequency (prescaler 0)
             PWM_TIMER->PRESCALER = 0;
             pwm_max_value = 64;
             break;
