@@ -24,13 +24,13 @@
 typedef enum
 {
     PWM_MODE_LED_100,   // 0-100 resolution, 156 Hz PWM frequency, 32 kHz timer frequency (prescaler 9)
-    PWM_MODE_LED_255,   // 8-bit resolution, 122 Hz PWM frequency, 65 kHz timer frequency (prescaler 8)
-    PWM_MODE_LED_1000,  // 0-1000 resolution, 125 Hz PWM frequency, 500 kHz timer frequency (prescaler 5)
+    PWM_MODE_LED_255,   // 8-bit resolution, 122 Hz PWM frequency, 32 kHz timer frequency (prescaler 8)
+    PWM_MODE_LED_1000,  // 0-1000 resolution, 125 Hz PWM frequency, 250 kHz timer frequency (prescaler 5)
     
-    PWM_MODE_MTR_100,   // 0-100 resolution, 20 kHz PWM frequency, 4MHz timer frequency (prescaler 2)
-    PWM_MODE_MTR_255,   // 8-bit resolution, 31 kHz PWM frequency, 16MHz timer frequency (prescaler 0)
+    PWM_MODE_MTR_100,   // 0-100 resolution, 20 kHz PWM frequency, 2MHz timer frequency (prescaler 2)
+    PWM_MODE_MTR_255,   // 8-bit resolution, 31 kHz PWM frequency, 8MHz timer frequency (prescaler 0)
     
-    PWM_MODE_BUZZER_64  // 0-64  resolution, 125 kHz PWM frequency, 16 MHz timer frequency (prescaler 0)
+    PWM_MODE_BUZZER_64  // 0-64  resolution, 125 kHz PWM frequency, 16MHz timer frequency (prescaler 0)
 } nrf_pwm_mode_t;
 
 typedef struct
@@ -45,5 +45,7 @@ typedef struct
 uint32_t nrf_pwm_init(nrf_pwm_config_t *config);
 
 void nrf_pwm_set_value(uint32_t pwm_channel, uint32_t pwm_value);
+
+void nrf_pwm_set_max_value(uint32_t max_value);
 
 #endif
