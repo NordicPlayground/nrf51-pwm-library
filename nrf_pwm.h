@@ -2,6 +2,7 @@
 #define __NRF_PWM_H__
 
 #include <stdint.h>
+#include <stdbool.h>
 
 // The maximum number of channels supported by the library. Should NOT be changed! 
 #define PWM_MAX_CHANNELS        3
@@ -47,5 +48,7 @@ uint32_t nrf_pwm_init(nrf_pwm_config_t *config);
 void nrf_pwm_set_value(uint32_t pwm_channel, uint32_t pwm_value);
 
 void nrf_pwm_set_max_value(uint32_t max_value);
+
+void nrf_pwm_set_enabled(bool enabled);
 
 #endif

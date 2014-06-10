@@ -120,6 +120,25 @@ void nrf_pwm_set_max_value(uint32_t max_value)
     PWM_TIMER->TASKS_START = 1;    
 }
 
+void nrf_pwm_set_enabled(bool enabled)
+{
+    if(enabled)
+    {
+        PWM_TIMER->INTENSET = TIMER_INTENSET_COMPARE3_Msk;
+        PWM_TIMER->TASKS_START = 1;
+    }
+    else
+    {
+        PWM_TIMER->TASKS_STOP = 1;
+        for(uint32_t i = 0; i < pwm_num_channels; i++)
+        {
+            nrf_gpiote_unconfig(pwm_gpiote_channel[i]);
+            nrf_gpio_pin_write(pwm_io_ch[i], 0); 
+            pwm_running[i] = 0;
+        }       
+    }
+}
+
 void PWM_IRQHandler(void)
 {
     static uint32_t i;
