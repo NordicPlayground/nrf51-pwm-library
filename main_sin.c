@@ -26,6 +26,7 @@
 #include "nrf_gpio.h"
 #include "nrf_delay.h"
 #include "nrf_pwm.h"
+#include "boards.h"
 
 const uint8_t sin_table[] = {0, 0,1,2,4,6,9,12,16,20,24,29,35,40,	46,	53,	59,	66,	74,	81,	88,	96,	104,112,120,128,136,144,152,160,168,175,182,190,197,203,210,216,221,227,
                232,236,240,244,247,250,252,254,255,255,255,255,255,254,252,250,247,244,240,236,232,227,221,216,210,203,197,190,182,175,168,160,152,144,136,128,120,112,104,
@@ -37,11 +38,12 @@ int main(void)
     
     nrf_pwm_config_t pwm_config = PWM_DEFAULT_CONFIG;
     
-    pwm_config.mode             = PWM_MODE_LED_100;
-    pwm_config.num_channels     = 3;
-    pwm_config.gpio_num[0]      = 8;
-    pwm_config.gpio_num[1]      = 9;
-    pwm_config.gpio_num[2]      = 10;    
+    pwm_config.mode             = PWM_MODE_LED_255;
+    pwm_config.num_channels     = 4;
+    pwm_config.gpio_num[0]      = LED_1;
+    pwm_config.gpio_num[1]      = LED_2;
+    pwm_config.gpio_num[2]      = LED_4;
+    pwm_config.gpio_num[3]      = LED_3;    
     
     // Initialize the PWM library
     nrf_pwm_init(&pwm_config);
@@ -50,8 +52,9 @@ int main(void)
     {
         // Update the 3 outputs with out of phase sine waves
         nrf_pwm_set_value(0, sin_table[counter]);
-        nrf_pwm_set_value(1, sin_table[(counter + 33) % 100]);
-        nrf_pwm_set_value(2, sin_table[(counter + 66) % 100]);
+        nrf_pwm_set_value(1, sin_table[(counter + 25) % 100]);
+        nrf_pwm_set_value(2, sin_table[(counter + 50) % 100]);
+        nrf_pwm_set_value(3, sin_table[(counter + 75) % 100]);
         counter = (counter + 1) % 100;
         
         // Add a delay to control the speed of the sine wave

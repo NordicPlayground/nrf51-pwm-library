@@ -26,6 +26,7 @@
 #include "nrf_gpio.h"
 #include "nrf_delay.h"
 #include "nrf_pwm.h"
+#include "boards.h"
 
 bool    new_adc_sample_ready = false;
 uint8_t adc_result;
@@ -36,8 +37,8 @@ int main(void)
     
     pwm_config.mode             = PWM_MODE_LED_255;
     pwm_config.num_channels     = 2;
-    pwm_config.gpio_num[0]      = 8;
-    pwm_config.gpio_num[1]      = 9;  
+    pwm_config.gpio_num[0]      = LED_1;
+    pwm_config.gpio_num[1]      = LED_2;  
 
     // Initialize the PWM library
     nrf_pwm_init(&pwm_config);

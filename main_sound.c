@@ -26,6 +26,7 @@
 #include "nrf_gpio.h"
 #include "nrf_delay.h"
 #include "nrf_pwm.h"
+#include "boards.h"
 
 #define FREQ_HALF_NOTE_FACTOR 1.059463f
 
@@ -39,7 +40,7 @@ void pwm_init()
 {
     nrf_pwm_config_t pwm_config = PWM_DEFAULT_CONFIG;
     
-    pwm_config.mode             = PWM_MODE_BUZZER_64;
+    pwm_config.mode             = PWM_MODE_BUZZER_255;
     pwm_config.num_channels     = 1;
     pwm_config.gpio_num[0]      = 14;
     
@@ -50,6 +51,8 @@ void pwm_init()
 int main(void)
 {
     float frequency = 440.0f;
+    
+    nrf_gpio_cfg_output(LED_1);
     
     // Start the external 16 MHz clock for a more accurate PWM frequency
     NRF_CLOCK->TASKS_HFCLKSTART = 1;
@@ -62,7 +65,9 @@ int main(void)
         
         frequency *= FREQ_HALF_NOTE_FACTOR;
         if(frequency > (440.0f * 4.0f)) frequency = 440.0f;
-
+            
+        nrf_gpio_pin_toggle(LED_1);
+        
         nrf_delay_us(500000);
     }
 }
