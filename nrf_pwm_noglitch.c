@@ -174,7 +174,7 @@ uint32_t nrf_pwm_get_max_value(void)
 
 void nrf_pwm_set_value(uint32_t pwm_channel, uint32_t pwm_value)
 {
-    if (pwm_value == PWM_TIMER->CC[pwm_channel])
+    if (pwm_value * 2 == PWM_TIMER->CC[pwm_channel])
     {
         // No change necessary
         return;
@@ -227,6 +227,9 @@ void nrf_pwm_set_value(uint32_t pwm_channel, uint32_t pwm_value)
             ppi_configure_channel(PWM_MAX_CHANNELS * 2, &PWM_TIMER->EVENTS_COMPARE[pwm_channel], &NRF_PPI->TASKS_CHG[pwm_ppi_chg].EN);
             ppi_enable_channels(1 << (PWM_MAX_CHANNELS * 2));
         }
+        
+        // Wait for one PWM clock cycle
+        nrf_delay_us(pwm_period_us);
         
         // Disable PPI channels next cycle
         pwm_freq_int_set();
@@ -287,6 +290,9 @@ void nrf_pwm_set_value(uint32_t pwm_channel, uint32_t pwm_value)
         
         ppi_configure_channel(PWM_MAX_CHANNELS * 2, &PWM_TIMER->EVENTS_COMPARE[2], &PWM_TIMER->TASKS_CAPTURE[pwm_channel]);
         ppi_enable_channels(1 << (PWM_MAX_CHANNELS * 2));
+        
+        // Wait for one PWM clock cycle
+        nrf_delay_us(pwm_period_us);
      
         // Disable PPI channels next cycle
         pwm_freq_int_set();
@@ -296,6 +302,7 @@ void nrf_pwm_set_value(uint32_t pwm_channel, uint32_t pwm_value)
         // New duty cycle is smaller than the current one
         ppi_disable_channels((1 << (PWM_MAX_CHANNELS * 2)) | (1 << (PWM_MAX_CHANNELS * 2 + 1)) | (1 << (PWM_MAX_CHANNELS * 2 + 2)));
         ppi_configure_channel_group(pwm_ppi_chg, 0);
+
         ppi_disable_channel_group(pwm_ppi_chg);
         ppi_configure_channel_group(pwm_ppi_chg, (1 << (PWM_MAX_CHANNELS * 2)) | (1 << (PWM_MAX_CHANNELS * 2 + 1)));
         
@@ -305,6 +312,9 @@ void nrf_pwm_set_value(uint32_t pwm_channel, uint32_t pwm_value)
         
         PWM_TIMER->CC[2] = pwm_value * 2;
         ppi_enable_channels(1 << (PWM_MAX_CHANNELS * 2 + 2));
+        
+        // Wait for one PWM clock cycle
+        nrf_delay_us(pwm_period_us);
         
         // Disable PPI channels next cycle
         pwm_freq_int_set();
