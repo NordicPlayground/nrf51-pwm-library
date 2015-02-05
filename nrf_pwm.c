@@ -18,6 +18,22 @@ static const uint8_t pwm_cc_margin_by_prescaler[] = {80, 40, 20, 10, 5, 2, 1, 1,
 
 void PWM_IRQHandler(void);
 
+static void apply_pan73_workaround(NRF_TIMER_Type *timer, bool enable)
+{
+    if(timer == NRF_TIMER0)
+    {
+        *(uint32_t *)0x40008C0C = (enable ? 1 : 0);
+    }
+    else if(timer == NRF_TIMER1)
+    {
+        *(uint32_t *)0x40009C0C = (enable ? 1 : 0);
+    }
+    else if(timer == NRF_TIMER2)
+    {
+        *(uint32_t *)0x4000AC0C = (enable ? 1 : 0);
+    }
+}
+
 static __INLINE bool safe_margins_present(uint32_t timer_state, uint32_t compare_state)  // Approx runtime ~2us
 {
     if(compare_state <= pwm_cc_update_margin_ticks)
@@ -115,7 +131,7 @@ uint32_t nrf_pwm_init(nrf_pwm_config_t *config)
         pwm_gpiote_channel[i] = config->gpiote_channel[i];        
     }
     PWM_TIMER->TASKS_CLEAR = 1;
-	PWM_TIMER->BITMODE = TIMER_BITMODE_BITMODE_16Bit;
+    PWM_TIMER->BITMODE = TIMER_BITMODE_BITMODE_16Bit;
     PWM_TIMER->CC[2] = pwm_next_max_value = pwm_max_value;
 	PWM_TIMER->MODE = TIMER_MODE_MODE_Timer;
     PWM_TIMER->SHORTS = TIMER_SHORTS_COMPARE2_CLEAR_Msk;
@@ -150,8 +166,13 @@ uint32_t nrf_pwm_init(nrf_pwm_config_t *config)
     NVIC_SetPriority(PWM_IRQn, 0);
     NVIC_EnableIRQ(PWM_IRQn);
 #endif
+    apply_pan73_workaround(PWM_TIMER, true);
     PWM_TIMER->TASKS_START = 1;
-    if(pwm_num_channels > 2) PWM_TIMER2->TASKS_START = 1;
+    if(pwm_num_channels > 2)
+    {
+        apply_pan73_workaround(PWM_TIMER2, true);
+        PWM_TIMER2->TASKS_START = 1;
+    }
     return 0;
 }
 
