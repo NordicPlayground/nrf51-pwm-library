@@ -8,9 +8,11 @@
 #include "nrf_sdm.h"
 #endif
 
-static uint32_t pwm_max_value, pwm_io_ch[PWM_MAX_CHANNELS], pwm_period_us;
-static uint8_t pwm_gpiote_channel[3], pwm_ppi_chg;
-static uint32_t pwm_num_channels;
+static uint32_t          pwm_max_value, pwm_io_ch[PWM_MAX_CHANNELS], pwm_period_us;
+static uint8_t           pwm_gpiote_channel[3], pwm_ppi_chg;
+static uint32_t          pwm_num_channels;
+static volatile uint32_t pwm_safe_to_update;
+static int8_t            pwm_safe_to_update_delay;
 
 static void ppi_enable_channels(uint32_t ch_msk)
 {
@@ -74,8 +76,27 @@ static void ppi_disable_channel_group(uint32_t ch_grp)
 #endif
 }
 
+static inline void nrf_gpiote_task_config(uint32_t chn, 
+                                          uint32_t gpio, 
+                                          uint32_t polarity, 
+                                          uint32_t outinit)
+{
+    NRF_GPIOTE->CONFIG[chn] = (GPIOTE_CONFIG_MODE_Task << GPIOTE_CONFIG_MODE_Pos)     |
+                              (polarity                << GPIOTE_CONFIG_POLARITY_Pos) |
+                              (outinit                 << GPIOTE_CONFIG_OUTINIT_Pos)  |
+                              (gpio                    << GPIOTE_CONFIG_PSEL_Pos);
+}
+
+static inline void nrf_gpiote_unconfig(uint32_t chn)
+{
+    NRF_GPIOTE->CONFIG[chn] = 0;
+}
+
 static void pwm_freq_int_set(void)
 {
+    pwm_safe_to_update       = false;
+    pwm_safe_to_update_delay = 2;
+    
     PWM_TIMER->EVENTS_COMPARE[3] = 0;
     PWM_TIMER->INTENSET          = TIMER_INTENSET_COMPARE3_Msk;
 }
@@ -83,16 +104,24 @@ static void pwm_freq_int_set(void)
 void PWM_IRQHandler(void)
 {
     PWM_TIMER->EVENTS_COMPARE[3] = 0;
-    PWM_TIMER->INTENCLR          = TIMER_INTENCLR_COMPARE3_Msk;
     
-    ppi_disable_channels((1 << (PWM_MAX_CHANNELS * 2)) | (1 << (PWM_MAX_CHANNELS * 2 + 1)) | (1 << (PWM_MAX_CHANNELS * 2 + 2)));
-    ppi_configure_channel_group(pwm_ppi_chg, 0);
-    ppi_disable_channel_group(pwm_ppi_chg);
+    --pwm_safe_to_update_delay;
+    
+    if (pwm_safe_to_update_delay <= 0)
+    {    
+        PWM_TIMER->INTENCLR          = TIMER_INTENCLR_COMPARE3_Msk;
+        
+        ppi_disable_channels((1 << (PWM_MAX_CHANNELS * 2)) | (1 << (PWM_MAX_CHANNELS * 2 + 1)) | (1 << (PWM_MAX_CHANNELS * 2 + 2)));
+        ppi_configure_channel_group(pwm_ppi_chg, 0);
+        ppi_disable_channel_group(pwm_ppi_chg);
+        
+        pwm_safe_to_update = true;
+    }
 }
 
 uint32_t nrf_pwm_init(nrf_pwm_config_t *config)
 {
-    static volatile uint32_t err_code;
+    uint32_t err_code;
     
     if(config->num_channels < 1 || config->num_channels > 2) return 0xFFFFFFFF;
     
@@ -131,8 +160,9 @@ uint32_t nrf_pwm_init(nrf_pwm_config_t *config)
         default:
             return 0xFFFFFFFF;
     }
-    pwm_ppi_chg      = config->ppi_group[0];
-    pwm_num_channels = config->num_channels;
+    pwm_safe_to_update = true;
+    pwm_ppi_chg        = config->ppi_group[0];
+    pwm_num_channels   = config->num_channels;
     for(int i = 0; i < pwm_num_channels; i++)
     {
         pwm_io_ch[i] = (uint32_t)config->gpio_num[i];
@@ -172,12 +202,18 @@ uint32_t nrf_pwm_get_max_value(void)
     return pwm_max_value;
 }
 
-void nrf_pwm_set_value(uint32_t pwm_channel, uint32_t pwm_value)
+uint32_t nrf_pwm_set_value(uint32_t pwm_channel, uint32_t pwm_value)
 {
+    
+    // Check to see if previous update is still ongoing
+    if (!pwm_safe_to_update)
+    {
+        return NRF_ERROR_BUSY;
+    }
     if (pwm_value * 2 == PWM_TIMER->CC[pwm_channel])
     {
         // No change necessary
-        return;
+        return NRF_SUCCESS;
     }
     
     if (PWM_TIMER->CC[pwm_channel] == 0)
@@ -187,15 +223,15 @@ void nrf_pwm_set_value(uint32_t pwm_channel, uint32_t pwm_value)
         {
             // Corner case: This PWM is not running and new value is 0% duty cycle
             NRF_GPIO->OUTCLR = (1 << pwm_io_ch[pwm_channel]);
-            PWM_TIMER->CC[pwm_channel] = pwm_value;
-            return;
+
+            return NRF_SUCCESS;
         }
         else if (pwm_value >= pwm_max_value)
         {
             // Corner case: This PWM is not running and new value is 100% duty cycle
             NRF_GPIO->OUTSET = (1 << pwm_io_ch[pwm_channel]);
-            PWM_TIMER->CC[pwm_channel] = pwm_value;
-            return;
+
+            return NRF_SUCCESS;
         }
         
         ppi_disable_channels((1 << (pwm_channel * 2)) | (1 << (pwm_channel * 2 + 1)));
@@ -204,7 +240,7 @@ void nrf_pwm_set_value(uint32_t pwm_channel, uint32_t pwm_value)
         if (NRF_GPIO->OUT & (1 << pwm_io_ch[pwm_channel]))
         {
             // PWM is currently in 100% duty cycle
-            nrf_gpiote_task_config(pwm_gpiote_channel[pwm_channel], pwm_io_ch[pwm_channel], NRF_GPIOTE_POLARITY_TOGGLE, NRF_GPIOTE_INITIAL_VALUE_HIGH);
+            nrf_gpiote_task_config(pwm_gpiote_channel[pwm_channel], pwm_io_ch[pwm_channel], GPIOTE_CONFIG_POLARITY_Toggle, GPIOTE_CONFIG_OUTINIT_High);
             
             ppi_configure_channel_group(pwm_ppi_chg, 0);
             ppi_disable_channel_group(pwm_ppi_chg);
@@ -217,7 +253,7 @@ void nrf_pwm_set_value(uint32_t pwm_channel, uint32_t pwm_value)
         else
         {
             // PWM is currently in 0% duty cycle
-            nrf_gpiote_task_config(pwm_gpiote_channel[pwm_channel], pwm_io_ch[pwm_channel], NRF_GPIOTE_POLARITY_TOGGLE, NRF_GPIOTE_INITIAL_VALUE_LOW);
+            nrf_gpiote_task_config(pwm_gpiote_channel[pwm_channel], pwm_io_ch[pwm_channel], GPIOTE_CONFIG_POLARITY_Toggle, GPIOTE_CONFIG_OUTINIT_Low);
             
             ppi_configure_channel_group(pwm_ppi_chg, 0);
             ppi_disable_channel_group(pwm_ppi_chg);
@@ -228,13 +264,10 @@ void nrf_pwm_set_value(uint32_t pwm_channel, uint32_t pwm_value)
             ppi_enable_channels(1 << (PWM_MAX_CHANNELS * 2));
         }
         
-        // Wait for one PWM clock cycle
-        nrf_delay_us(pwm_period_us);
-        
-        // Disable PPI channels next cycle
+        // Disable utility PPI channels next cycle
         pwm_freq_int_set();
         
-        return;
+        return NRF_SUCCESS;
     }
     
     if (pwm_value == 0)
@@ -248,9 +281,6 @@ void nrf_pwm_set_value(uint32_t pwm_channel, uint32_t pwm_value)
         ppi_configure_channel(PWM_MAX_CHANNELS * 2, &PWM_TIMER->EVENTS_COMPARE[pwm_channel], &NRF_PPI->TASKS_CHG[pwm_ppi_chg].DIS);
         ppi_enable_channels(1 << (PWM_MAX_CHANNELS * 2));
         
-        // Wait for one PWM clock cycle
-        nrf_delay_us(pwm_period_us);
-        
         PWM_TIMER->CC[pwm_channel] = 0;
         
         ppi_disable_channels(1 << (PWM_MAX_CHANNELS * 2));
@@ -262,25 +292,10 @@ void nrf_pwm_set_value(uint32_t pwm_channel, uint32_t pwm_value)
     {
         // Corner case: 100% duty cycle
         NRF_GPIO->OUTSET = (1 << pwm_io_ch[pwm_channel]);
-
-        ppi_disable_channels(1 << (PWM_MAX_CHANNELS * 2));
-        ppi_configure_channel_group(pwm_ppi_chg, 0);
-        ppi_enable_channel_group(pwm_ppi_chg);
-        ppi_configure_channel_group(pwm_ppi_chg, (1 << (pwm_channel * 2)) | (1 << (pwm_channel * 2 + 1)));
-        ppi_configure_channel(PWM_MAX_CHANNELS * 2, &PWM_TIMER->EVENTS_COMPARE[3], &NRF_PPI->TASKS_CHG[pwm_ppi_chg].DIS);
-        ppi_enable_channels(1 << (PWM_MAX_CHANNELS * 2));
-        
-        // Wait for one PWM clock cycle
-        nrf_delay_us(pwm_period_us);
-        
-        ppi_disable_channels(1 << (PWM_MAX_CHANNELS * 2));
-        ppi_configure_channel_group(pwm_ppi_chg, 0);
-        
         PWM_TIMER->CC[pwm_channel] = 0;
-        
-        // 100% duty cycle
         nrf_gpiote_unconfig(pwm_gpiote_channel[pwm_channel]);
-        return;
+        
+        return NRF_SUCCESS;
     }
     else if ((pwm_value * 2) > PWM_TIMER->CC[pwm_channel])
     {
@@ -290,11 +305,8 @@ void nrf_pwm_set_value(uint32_t pwm_channel, uint32_t pwm_value)
         
         ppi_configure_channel(PWM_MAX_CHANNELS * 2, &PWM_TIMER->EVENTS_COMPARE[2], &PWM_TIMER->TASKS_CAPTURE[pwm_channel]);
         ppi_enable_channels(1 << (PWM_MAX_CHANNELS * 2));
-        
-        // Wait for one PWM clock cycle
-        nrf_delay_us(pwm_period_us);
      
-        // Disable PPI channels next cycle
+        // Disable utility PPI channels next cycle
         pwm_freq_int_set();
     }
     else
@@ -313,10 +325,9 @@ void nrf_pwm_set_value(uint32_t pwm_channel, uint32_t pwm_value)
         PWM_TIMER->CC[2] = pwm_value * 2;
         ppi_enable_channels(1 << (PWM_MAX_CHANNELS * 2 + 2));
         
-        // Wait for one PWM clock cycle
-        nrf_delay_us(pwm_period_us);
-        
-        // Disable PPI channels next cycle
+        // Disable utility PPI channels next cycle
         pwm_freq_int_set();
     }
+    
+    return NRF_SUCCESS;
 }

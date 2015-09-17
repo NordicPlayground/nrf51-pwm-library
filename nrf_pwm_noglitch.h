@@ -60,8 +60,10 @@ uint32_t nrf_pwm_init(nrf_pwm_config_t *config);
  *
  * @params[in] pwm_channel Channel to update [0, PWM_MAX_CHANNELS]
  * @params[in] pwm_value   Duty cycle (Use @ref nrf_pwm_get_max_value() to get 100% duty cycle value)
+ * @retval NRF_SUCCESS
+ * @retval NRF_ERROR_BUSY Previous update has not yet finished
  */
-void nrf_pwm_set_value(uint32_t pwm_channel, uint32_t pwm_value);
+uint32_t nrf_pwm_set_value(uint32_t pwm_channel, uint32_t pwm_value);
 
 uint32_t nrf_pwm_get_max_value(void);
 
